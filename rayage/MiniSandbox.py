@@ -70,8 +70,8 @@ class MiniSandbox(SandboxPolicy,Sandbox):
     sc_table = None
     
     # white list of essential linux syscalls for statically-linked C programs
-    sc_safe = {'i686': set([0, 3, 4, 5, 6, 19, 45, 54, 90, 91, 122, 125, 140, 163, 192, 197, 224, 243, 252, ]),
-               'x86_64': set([0, 1, 2, 3, 5, 8, 9, 10, 11, 12, 16, 25, 63, 158, 219, 231, ])}
+    sc_safe = {'i686': set([0, 3, 4, 6, 19, 45, 54, 90, 91, 122, 125, 140, 163, 192, 197, 224, 243, 252, ]),
+               'x86_64': set([0, 1, 3, 5, 8, 9, 10, 11, 12, 16, 25, 63, 158, 219, 231, ])}
     # open() system call abi
     SC_open = (2, ) if machine == 'x86_64' else (5, )
     
@@ -114,6 +114,9 @@ class MiniSandbox(SandboxPolicy,Sandbox):
             assert(e.data in MiniSandbox.SC_open)
             if e.type == S_EVENT_SYSCALL:
                 value = self.dump(T_STRING, e.ext1)
+                if value is None:
+                    print ">> Killed because of open() with invalid address."
+                    return self._KILL_RT(e, a)
                 path = os.path.dirname(os.path.abspath(value))
                 common_path = os.path.commonprefix([path, self.sandbox_directory])
                 if not os.path.samefile(common_path, self.sandbox_directory):
@@ -130,6 +133,10 @@ class MiniSandbox(SandboxPolicy,Sandbox):
     
     def _KILL_RF(self, e, a): # restricted func.
         a.type, a.data = S_ACTION_KILL, S_RESULT_RF
+        return a
+    
+    def _KILL_RT(self, e, a): # runtime error
+        a.type, a.data = S_ACTION_KILL, S_RESULT_RT
         return a
     
     def _KILL_BP(self, e, a): # bad policy
